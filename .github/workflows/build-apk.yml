@@ -1,0 +1,41 @@
+name: Build Flutter APK
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ "main" ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Generate Android project scaffold
+        run: |
+          flutter create --platforms=android --project-name notif_demo_flutter build_src
+          cp lib/main.dart build_src/lib/main.dart
+          cp pubspec.yaml build_src/pubspec.yaml
+          sed -i '/<manifest /a\\    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />' build_src/android/app/src/main/AndroidManifest.xml
+
+      - name: Get packages
+        working-directory: build_src
+        run: flutter pub get
+
+      - name: Build release APK
+        working-directory: build_src
+        run: flutter build apk --release
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: notif-demo-apk
+          path: build_src/build/app/outputs/flutter-apk/app-release.apk
+          if-no-files-found: error
