@@ -1,9 +1,10 @@
+
 name: Build Flutter APK
 
 on:
   workflow_dispatch:
   push:
-    branches: [ "main" ]
+    branches: ["main"]
 
 jobs:
   build:
@@ -18,12 +19,58 @@ jobs:
           channel: stable
           cache: true
 
-      - name: Generate Android project scaffold
+      - name: Generate Android project
         run: |
           flutter create --platforms=android --project-name notif_demo_flutter build_src
           cp lib/main.dart build_src/lib/main.dart
           cp pubspec.yaml build_src/pubspec.yaml
-          sed -i '/<manifest /a\\    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />' build_src/android/app/src/main/AndroidManifest.xml
+
+      - name: Configure Android notifications
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+
+          base = Path("build_src/android/app")
+          manifest = base / "src/main/AndroidManifest.xml"
+          text = manifest.read_text()
+          permission = '    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />'
+          if "android.permission.POST_NOTIFICATIONS" not in text:
+              text = text.replace("<application", permission + "\n    <application", 1)
+          manifest.write_text(text)
+
+          gradle = base / "build.gradle.kts"
+          kts = gradle.exists()
+          if not kts:
+              gradle = base / "build.gradle"
+          text = gradle.read_text()
+
+          if kts:
+              if "isCoreLibraryDesugaringEnabled" not in text:
+                  text = re.sub(
+                      r"compileOptions\s*\{",
+                      "compileOptions {\n        isCoreLibraryDesugaringEnabled = true",
+                      text, count=1
+                  )
+              dep = 'coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.4")'
+          else:
+              if "coreLibraryDesugaringEnabled" not in text:
+                  text = re.sub(
+                      r"compileOptions\s*\{",
+                      "compileOptions {\n        coreLibraryDesugaringEnabled true",
+                      text, count=1
+                  )
+              dep = "coreLibraryDesugaring 'com.android.tools:desugar_jdk_libs:2.1.4'"
+
+          if "coreLibraryDesugaring(" not in text and "coreLibraryDesugaring '" not in text:
+              if re.search(r"dependencies\s*\{", text):
+                  text = re.sub(r"dependencies\s*\{", lambda m: m.group(0) + "\n    " + dep, text, count=1)
+              else:
+                  text += "\ndependencies {\n    " + dep + "\n}\n"
+
+          gradle.write_text(text)
+          print("Android desugaring configured.")
+          PY
 
       - name: Get packages
         working-directory: build_src
