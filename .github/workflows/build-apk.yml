@@ -1,4 +1,3 @@
-
 name: Build Flutter APK
 
 on:
@@ -24,20 +23,29 @@ jobs:
           flutter create --platforms=android --project-name notif_demo_flutter build_src
           cp lib/main.dart build_src/lib/main.dart
           cp pubspec.yaml build_src/pubspec.yaml
+          cp android/app/src/main/AndroidManifest.xml build_src/android/app/src/main/AndroidManifest.xml
+          python3 - <<'PY'
+          from PIL import Image
+          import os
 
-      - name: Configure Android notifications
+          src = "android/app/src/main/res/mipmap-xxxhdpi/ic_launcher.png"
+          sizes = {"mdpi":48,"hdpi":72,"xhdpi":96,"xxhdpi":144,"xxxhdpi":192}
+
+          for density, size in sizes.items():
+              dst = f"build_src/android/app/src/main/res/mipmap-{density}"
+              os.makedirs(dst, exist_ok=True)
+              img = Image.open(src).resize((size, size), Image.LANCZOS)
+              img.save(f"{dst}/ic_launcher.png")
+              print(f"{density}: {size}x{size}")
+          PY
+
+      - name: Configure Android desugaring
         run: |
           python3 - <<'PY'
           from pathlib import Path
           import re
 
           base = Path("build_src/android/app")
-          manifest = base / "src/main/AndroidManifest.xml"
-          text = manifest.read_text()
-          permission = '    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />'
-          if "android.permission.POST_NOTIFICATIONS" not in text:
-              text = text.replace("<application", permission + "\n    <application", 1)
-          manifest.write_text(text)
 
           gradle = base / "build.gradle.kts"
           kts = gradle.exists()
@@ -69,7 +77,7 @@ jobs:
                   text += "\ndependencies {\n    " + dep + "\n}\n"
 
           gradle.write_text(text)
-          print("Android desugaring configured.")
+          print("Desugaring configured.")
           PY
 
       - name: Get packages
