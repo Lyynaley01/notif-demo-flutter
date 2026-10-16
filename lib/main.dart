@@ -84,11 +84,11 @@ class _NotificationFormPageState extends State<NotificationFormPage> {
 
     switch (_type) {
       case 'Top Up Saldo':
-        return '$amount dari $sender. Ini notifikasi DEMO, bukan transaksi asli.';
+        return '$amount dari $sender.';
       case 'Pembayaran Masuk':
-        return '$amount dari $sender diterima (SIMULASI DEMO). Bukan bukti pembayaran.';
+        return '$amount dari $sender diterima.';
       default:
-        return '$amount diterima dari $sender 💰 (SIMULASI DEMO). Bukan transaksi asli.';
+        return '$amount diterima dari $sender 💰';
     }
   }
 
